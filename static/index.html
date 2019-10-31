@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=q, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<style>
+    * {
+        padding: 0;
+        margin: 0;
+    }
+
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+    }
+
+    .progress-bar {
+        position: absolute;
+        display: none;
+        /* top: 260px; */
+        width: 100%;
+        height: 20px;
+        background: #aaa;
+        /* margin-bottom: 20px; */
+        position: relative;
+        overflow: hidden;
+    }
+
+    .drag-wrapper {
+        position: relative;
+        height: 300px;
+        width: 360px;
+        /* border: 2px solid #555; */
+        background: #ddd;
+        line-height: 300px;
+        box-sizing: border-box;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+        color: rgba(168, 126, 111, 0.7);
+        position: fixed;
+        top: 8%;
+        left: 50%;
+        margin-left: -180px;
+    }
+
+    .bar {
+        height: 100%;
+        background: aquamarine;
+        overflow: hidden;
+        padding: 0;
+        width: 2px;
+        margin: 0;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .bar1 {
+        height: 100%;
+        display: inline-block;
+        background: linear-gradient(120deg, transparent, lime 80px, lime 100px, transparent);
+        margin: 0;
+        padding: 0;
+        width: 220px;
+        position: absolute;
+        animation: go 4s infinite;
+        top: 0;
+        left: 0;
+    }
+
+    .show {
+        height: 300px;
+        position: fixed;
+        top: 55%;
+    }
+
+    .show li {
+        height: 100%;
+        line-height: 300px;
+        text-align: center;
+        float: left;
+    }
+
+    .show li img {
+        height: 100%;
+    }
+
+    @keyframes go {
+        0% {
+            left: -220px;
+        }
+
+        100% {
+            left: 500px;
+        }
+    }
+</style>
+
+<body>
+
+    <div class="drag-wrapper">
+        <p class="drag-text"></p>
+        <div class="progress-bar">
+            <p class="bar">
+                <span class="bar1"></span>
+            </p>
+        </div>
+    </div>
+    <ul class="show">
+
+    </ul>
+
+    <script>
+        var oBar = document.getElementsByClassName('progress-bar')[0];
+        var progress = document.getElementsByClassName('bar')[0];
+        var progressBar = document.getElementsByClassName('bar1')[0];
+        var oDrag = document.getElementsByClassName('drag-wrapper')[0];
+        var dragText = document.getElementsByClassName('drag-text')[0];
+        var oUl = document.getElementsByClassName('show')[0];
+        // 进度条
+        function moveProgress(orgin, target, ratio, animaionBar) {
+            var oLang = orgin.offsetWidth;
+            var lang = ratio * oLang;
+            if (lang === oLang) {
+                animaionBar.style.animation = 'go 4s';
+            }
+            target.style.width = lang + 'px';
+        }
+        // 获取上传进度
+        function uploadProgress(ev) {
+            var ratio = ev.loaded / ev.total;
+            moveProgress(oBar, progress, ratio, progressBar);
+        }
+        // 发送请求
+        function ajax(type, url, data, callback) {
+            var xhr;
+            if (window.XMLHttpRequest) {
+                xhr = new XMLHttpRequest();
+            } else {
+                xhr = new ActiveXObject('Microsoft.XMLHttp');
+            }
+            type = type.toUpperCase()
+            xhr.upload.addEventListener("progress", uploadProgress, false);
+            if (type == 'GET') {
+                xhr.open(type, url + '?' + data, true);
+                xhr.send();
+            } else if (type == 'POST') {
+                xhr.open(type, url, true);
+                xhr.send(data);
+            }
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    callback(xhr.responseText);
+                }
+            }
+        }
+
+        // 拖拽上传
+        var timer = null
+
+        oDrag.addEventListener('dragenter', function () {
+            document.removeEventListener('dragover', startDrag, false);
+            document.addEventListener('dragover', stopOver, false);
+            clearTimeout(timer);
+            dragText.innerText = '请松手';
+        }, false)
+
+        oDrag.addEventListener('dragleave', function () {
+            document.removeEventListener('dragover', stopOver, false);
+            document.addEventListener('dragover', startDrag, false);
+        }, false)
+
+        function stopOver(ev) {
+            ev.preventDefault();
+        }
+
+        function startDrag(ev) {
+            clearTimeout(timer)
+            dragText.innerText = '请将要上传的文件拖至此区域';
+            timer = setTimeout(function () {
+                dragText.innerText = '';
+            }, 300)
+            ev.preventDefault();
+        }
+
+        function analysisData(data) {
+            if (data.status === 1) {
+                let files = data.data;
+                files.forEach((ele, index) => {
+                    if (ele.type.indexOf('image') !== -1) {
+                        let img = new Image();
+                        let item = document.createElement('li');
+                        
+                        img.src = ele.path;
+                        item.appendChild(img);
+                        oUl.appendChild(item);
+                    } else {
+                        let a = document.createElement('a');
+                        let item = document.createElement('li');
+                        a.href = ele.path;
+                        console.log(ele);
+                        a.innerText = ele.name
+                        a.download = ele.name
+                        item.appendChild(a)
+                        oUl.appendChild(item)
+                    }
+                })
+            }
+        }
+
+        document.addEventListener('dragover', startDrag, false);
+
+        oDrag.addEventListener('drop', function (ev) {
+            var dataArray = Array.prototype.slice.call(ev.dataTransfer.files, 0);
+            var formData = new FormData();
+            dataArray.forEach(function (ele) {
+                formData.append('file', ele);
+                console.log(ele);
+            })
+            dragText.innerText = '上传中';
+            oBar.style.display = 'block';
+            ajax('post', '/upload', formData, function (res) {
+                let data = JSON.parse(res);
+                analysisData(data)
+                dragText.innerText = '上传成功';
+            })
+        }, false)
+
+        document.addEventListener('drop', function (ev) {
+            ev.preventDefault();
+        }, false)
+    </script>
+</body>
+
+</html>
